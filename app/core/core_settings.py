@@ -17,7 +17,12 @@ class CoreSettings(BaseSettings):
     app_module: str = "app.main:app"
 
     allowed_origins: list[str] = Field(
-        default=["http://localhost:8000", "http://127.0.0.1:8000"]
+        default=[
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
     )
     allow_credentials: bool = True
     allow_methods: list[str] = ["*"]
@@ -67,13 +72,18 @@ class CoreSettings(BaseSettings):
     short_token_hex: int = 3
     long_token_hex: int = 5
 
-    session_cookie_name: str = "session"
-    session_cookie_path: str = "/"
     session_cookie_domain: str | None = None
     session_cookie_secure: bool = False
-    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     session_cookie_httponly: bool = True
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+
+    session_cookie_name: str = "session"
+    session_cookie_path: str = "/"
     session_max_age: int = 3600
+
+    refresh_token_cookie_name: str = "refresh_token"
+    refresh_token_cookie_path: str = "/"
+    refresh_token_cookie_max_age: int = 3600 * 24 * 30
 
     log_level: str = "INFO"
     log_dir: Path = Path(__file__).parent.parent.parent / "logs"

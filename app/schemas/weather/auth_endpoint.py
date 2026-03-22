@@ -9,6 +9,14 @@ class UserTokenOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserTokenOutRefresh(BaseModel):
+    access_token: str
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserTokenIn(BaseModel):
     email: str
     password: str

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -15,7 +15,12 @@ from app.core.logger import logger
 from app.core.oauth import get_oauth_user_info, get_redirect_uri, oauth
 from app.db.session_weather import SessionDependency
 from app.models.weather import User
-from app.schemas.weather.auth_endpoint import LogoutResponse, UserTokenIn, UserTokenOut
+from app.schemas.weather.auth_endpoint import (
+    LogoutResponse,
+    UserTokenIn,
+    UserTokenOut,
+    UserTokenOutRefresh,
+)
 from app.schemas.weather.user import UserCreate, UserProfile
 from app.services.db_services.user_service import UserService
 from app.services.utils.validation import ensure_exists
@@ -45,11 +50,14 @@ async def register_user(
     return {"user_id": user.id}
 
 
-@router.post("/login", response_model=UserTokenOut)
+@router.post("/login", response_model=UserTokenOutRefresh)
 @limiter.limit("5/minute")
 async def login_user(
-    request: Request, user_data: UserTokenIn, session: SessionDependency
-) -> UserTokenOut:
+    request: Request,
+    response: Response,
+    user_data: UserTokenIn,
+    session: SessionDependency,
+) -> UserTokenOutRefresh:
 
     service = UserService(session)
     try:
@@ -73,21 +81,43 @@ async def login_user(
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
+    response.set_cookie(
+        key=core_settings.refresh_token_cookie_name,
+        value=refresh_token,
+        path=core_settings.refresh_token_cookie_path,
+        domain=core_settings.session_cookie_domain,
+        httponly=core_settings.session_cookie_httponly,
+        secure=core_settings.session_cookie_secure,
+        samesite=core_settings.session_cookie_samesite,
+        max_age=core_settings.refresh_token_cookie_max_age,
+    )
+
     logger.info(f"User logged in: user_id={user.id} | email={user.email}")
-    return UserTokenOut(
+    return UserTokenOutRefresh(
         access_token=access_token,
-        refresh_token=refresh_token,
+        refresh_token=None,
         token_type="bearer",
     )
 
 
-@router.post("/refresh", response_model=UserTokenOut)
-@limiter.limit("30/minute")
+@router.post("/refresh", response_model=UserTokenOutRefresh)
+@limiter.limit("10/minute")
 async def refresh_token_endpoint(
-    request: Request, refresh: str, session: SessionDependency
-) -> UserTokenOut:
+    request: Request, response: Response, session: SessionDependency
+) -> UserTokenOutRefresh:
+
+    refresh_token = request.cookies.get(core_settings.refresh_token_cookie_name)
+
+    if not refresh_token:
+        logger.warning("Token refresh failed: missing refresh token in cookies")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing refresh token",
+        )
+
     try:
-        user = await get_user_by_refresh_token(refresh, session)
+        user = await get_user_by_refresh_token(refresh_token, session)
+
     except Exception as e:
         logger.warning(
             f"Token refresh failed: invalid or expired token | error={type(e).__name__}"
@@ -107,28 +137,40 @@ async def refresh_token_endpoint(
     service = UserService(session)
     await service.update_refresh_token(user.id, new_refresh_token)
 
+    response.set_cookie(
+        key=core_settings.refresh_token_cookie_name,
+        value=new_refresh_token,
+        path=core_settings.refresh_token_cookie_path,
+        domain=core_settings.session_cookie_domain,
+        httponly=core_settings.session_cookie_httponly,
+        secure=core_settings.session_cookie_secure,
+        samesite=core_settings.session_cookie_samesite,
+        max_age=core_settings.refresh_token_cookie_max_age,
+    )
+
     logger.debug(f"Token refreshed: user_id={user.id}")
-    return UserTokenOut(
+    return UserTokenOutRefresh(
         access_token=new_access_token,
-        refresh_token=new_refresh_token,
+        refresh_token=None,
         token_type="bearer",
     )
 
 
 @router.get("/oauth/github/login")
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 async def oauth_github_login(request: Request):
     redirect_uri = get_redirect_uri(Provider.GITHUB, request)
     logger.debug(f"OAuth GitHub login initiated: redirect_uri={redirect_uri}")
     return await oauth.github.authorize_redirect(request, redirect_uri)
 
 
-@router.get("/oauth/github/callback", response_model=UserTokenOut)
-@limiter.limit("10/minute")
+@router.get("/oauth/github/callback", response_model=UserTokenOutRefresh)
+@limiter.limit("5/minute")
 async def oauth_github_callback(
     request: Request,
+    response: Response,
     session: SessionDependency,
-) -> UserTokenOut:
+) -> UserTokenOutRefresh:
     code = request.query_params.get("code")
 
     if not code:
@@ -175,18 +217,29 @@ async def oauth_github_callback(
 
     await service.update_refresh_token(user.id, refresh_token)
 
+    response.set_cookie(
+        key=core_settings.refresh_token_cookie_name,
+        value=refresh_token,
+        path=core_settings.refresh_token_cookie_path,
+        domain=core_settings.session_cookie_domain,
+        httponly=core_settings.session_cookie_httponly,
+        secure=core_settings.session_cookie_secure,
+        samesite=core_settings.session_cookie_samesite,
+        max_age=core_settings.refresh_token_cookie_max_age,
+    )
+
     logger.info(
         f"OAuth login successful: user_id={user.id} | provider=github | new_user={is_new}"
     )
-    return UserTokenOut(
+    return UserTokenOutRefresh(
         access_token=access_token,
-        refresh_token=refresh_token,
+        refresh_token=None,
         token_type="bearer",
     )
 
 
 @router.get("/me", response_model=UserProfile)
-@limiter.limit("30/minute")
+@limiter.limit("10/minute")
 async def get_profile(
     request: Request, current_user: User = Depends(get_current_user)
 ) -> UserProfile:
@@ -200,7 +253,6 @@ async def get_profile(
         is_superuser=current_user.is_superuser,
         default_units=current_user.default_units,
         preferred_lang=current_user.preferred_lang,
-        refresh_token=current_user.refresh_token,
         created_at=current_user.created_at,
         last_login_at=current_user.last_login_at,
         updated_at=current_user.updated_at,
@@ -208,10 +260,10 @@ async def get_profile(
 
 
 @router.post("/logout", response_model=LogoutResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("30/minute")
+@limiter.limit("10/minute")
 async def logout_user(
     request: Request,
-    response: JSONResponse,
+    response: Response,
     session: SessionDependency,
     current_user: User = Depends(get_current_user),
 ) -> LogoutResponse:
@@ -222,6 +274,14 @@ async def logout_user(
     response.delete_cookie(
         key=core_settings.session_cookie_name,
         path=core_settings.session_cookie_path,
+        domain=core_settings.session_cookie_domain,
+        secure=core_settings.session_cookie_secure,
+        httponly=core_settings.session_cookie_httponly,
+        samesite=core_settings.session_cookie_samesite,
+    )
+    response.delete_cookie(
+        key=core_settings.refresh_token_cookie_name,
+        path=core_settings.refresh_token_cookie_path,
         domain=core_settings.session_cookie_domain,
         secure=core_settings.session_cookie_secure,
         httponly=core_settings.session_cookie_httponly,

@@ -140,7 +140,7 @@ class UserProfile(BaseModel):
     is_superuser: bool
     default_units: Metric
     preferred_lang: str
-    refresh_token: str | None
+    refresh_token: str | None = None
     created_at: datetime
     last_login_at: datetime | None
     updated_at: datetime
