@@ -5,8 +5,7 @@
 ## 🛠 Технологический стек
 
 - **Framework:** FastAPI
-- **Auth:** AuthX (JWT)
-- **Database:** SQLite (AIOSQLite)
+- **Database:** SQLite
 - **Cache:** Redis
 - **External API:** OpenWeatherMap
 - **Deployment:** Docker (в планах)
