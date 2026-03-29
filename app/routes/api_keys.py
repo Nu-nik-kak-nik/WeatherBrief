@@ -84,7 +84,7 @@ async def add_api_key(
 
 
 @router.put("/{key_id}", response_model=UserAPIKeyOut)
-@limiter.limit("5/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def update_api_key(
     request: Request,
     key_id: str,
@@ -122,7 +122,7 @@ async def update_api_key(
 
 
 @router.delete("/{key_id}", response_model=dict)
-@limiter.limit("10/minute")
+@limiter.limit(core_settings.average_limit_request)
 async def delete_api_key(
     request: Request,
     key_id: str,
@@ -152,7 +152,7 @@ async def delete_api_key(
 
 
 @router.patch("/{key_id}/activate", response_model=dict)
-@limiter.limit("5/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def activate_api_key(
     request: Request,
     key_id: str,
@@ -181,7 +181,7 @@ async def activate_api_key(
 
 
 @router.patch("/{key_id}/deactivate", response_model=dict)
-@limiter.limit("5/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def deactivate_api_key(
     request: Request,
     key_id: str,
@@ -210,7 +210,7 @@ async def deactivate_api_key(
 
 
 @router.get("/{key_id}/decrypt", response_model=dict)
-@limiter.limit("2/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def get_decrypted_api_key(
     request: Request,
     key_id: str,

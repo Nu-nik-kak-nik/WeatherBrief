@@ -7,7 +7,7 @@ from app.core.core_settings import Metric, Provider, UserRole
 
 
 class UserBase(BaseModel):
-    email: EmailStr | None = Field(None, description="Email пользователя")
+    email: EmailStr = Field(..., description="Email пользователя")
     username: str | None = Field(
         None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$"
     )

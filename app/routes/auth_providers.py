@@ -49,7 +49,7 @@ async def get_provider_by_id(
 
 
 @router.put("/{auth_id}", response_model=AuthProviderOut)
-@limiter.limit("3/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def update_provider(
     request: Request,
     auth_id: int,
@@ -88,7 +88,7 @@ async def update_provider(
 
 
 @router.delete("/{auth_id}", status_code=status.HTTP_204_NO_CONTENT)
-@limiter.limit("1/minute")
+@limiter.limit(core_settings.very_strong_limit_request)
 async def delete_provider(
     request: Request,
     auth_id: int,

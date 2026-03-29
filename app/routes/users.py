@@ -3,6 +3,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core.auth import CurrentUser
+from app.core.core_settings import core_settings
 from app.core.exceptions import EntityNotFoundError
 from app.core.logger import logger
 from app.db.session_weather import SessionDependency
@@ -16,13 +17,13 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/profile", response_model=UserProfile)
-@limiter.limit("30/minute")
+@limiter.limit(core_settings.light_limit_request)
 async def get_profile(request: Request, current_user: CurrentUser) -> User:
     return current_user
 
 
 @router.put("/profile", response_model=UserProfile)
-@limiter.limit("5/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def update_profile(
     request: Request,
     user_update: UserUpdate,
@@ -52,7 +53,7 @@ async def update_profile(
 
 
 @router.post("/change-password", response_model=dict[str, str])
-@limiter.limit("1/minute")
+@limiter.limit(core_settings.very_strong_limit_request)
 async def change_password(
     request: Request,
     old_password: str,
@@ -81,7 +82,7 @@ async def change_password(
 
 
 @router.post("/activate", response_model=UserIsActive)
-@limiter.limit("3/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def activate_user(
     request: Request,
     current_user: CurrentUser,
@@ -102,7 +103,7 @@ async def activate_user(
 
 
 @router.post("/deactivate", response_model=UserIsActive)
-@limiter.limit("3/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def deactivate_user(
     request: Request,
     current_user: CurrentUser,

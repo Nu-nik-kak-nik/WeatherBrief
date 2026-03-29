@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from app.core.core_settings import core_settings
 from app.core.logger import logger
 from app.schemas.weather.location_search import (
     LocationSearchResponse,
@@ -37,7 +38,7 @@ router = APIRouter(
 
 
 @router.get("/now", response_model=WeatherNowResponse)
-@limiter.limit("30/minute")
+@limiter.limit(core_settings.light_limit_request)
 async def get_weather_now(
     request: Request,
     params: dict[str, Any] = Depends(get_validated_weather_params),
@@ -54,7 +55,7 @@ async def get_weather_now(
 
 
 @router.get("/5days/detailed", response_model=Weather5DaysDetailedResponse)
-@limiter.limit("20/minute")
+@limiter.limit(core_settings.light_limit_request)
 async def get_weather_5days_detailed(
     request: Request,
     params: dict[str, Any] = Depends(get_validated_weather_params),
@@ -71,7 +72,7 @@ async def get_weather_5days_detailed(
 
 
 @router.get("/5days/summary", response_model=Weather5DaysSummaryResponse)
-@limiter.limit("30/minute")
+@limiter.limit(core_settings.light_limit_request)
 async def get_weather_5days_summary(
     request: Request,
     params: dict[str, Any] = Depends(get_validated_weather_params),
@@ -89,7 +90,7 @@ async def get_weather_5days_summary(
 
 
 @router.get("/search/by-name", response_model=LocationSearchResponse)
-@limiter.limit("20/minute")
+@limiter.limit(core_settings.light_limit_request)
 async def search_locations_by_name(
     request: Request,
     params: dict[str, Any] = Depends(get_validated_location_search_params),
@@ -114,7 +115,7 @@ async def search_locations_by_name(
 
 
 @router.get("/search/by-coords", response_model=LocationSearchResponse)
-@limiter.limit("20/minute")
+@limiter.limit(core_settings.light_limit_request)
 async def search_locations_by_coordinates(
     request: Request,
     params: dict[str, Any] = Depends(get_validated_reverse_search_params),

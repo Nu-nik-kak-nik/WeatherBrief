@@ -51,6 +51,11 @@ class CoreSettings(BaseSettings):
     github_client_id: str = Field(..., validation_alias="GITHUB_CLIENT_ID")
     github_client_secret: str = Field(..., validation_alias="GITHUB_CLIENT_SECRET")
 
+    frontend_oauth_callback_url: str = Field(
+        default="http://localhost:3000/auth/oauth/callback",
+        validation_alias="FRONTEND_OAUTH_CALLBACK_URL",
+    )
+
     token_minutes_length: int = 30
     token_days_length: int = 30
 
@@ -90,6 +95,12 @@ class CoreSettings(BaseSettings):
     log_file: str = "app.log"
     log_max_bytes: int = 10 * 1024 * 1024
     log_backup_count: int = 3
+
+    default_limits_request: list = ["60/minute"]
+    very_strong_limit_request: str = "1/minute"
+    strong_limit_request: str = "5/minute"
+    average_limit_request: str = "15/minute"
+    light_limit_request: str = "30/minute"
 
 
 class UserRole(str, enum.Enum):

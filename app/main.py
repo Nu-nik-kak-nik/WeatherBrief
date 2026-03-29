@@ -19,7 +19,7 @@ from app.routes import api_keys, auth, auth_providers, location, users, weather_
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=weather_settings.redis_url,
-    default_limits=["100/minute"],
+    default_limits=core_settings.default_limits_request,
 )
 
 

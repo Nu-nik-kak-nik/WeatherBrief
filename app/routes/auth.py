@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -19,7 +19,6 @@ from app.schemas.weather.auth_endpoint import (
     LogoutResponse,
     UserTokenIn,
     UserTokenOut,
-    UserTokenOutRefresh,
 )
 from app.schemas.weather.user import UserCreate, UserProfile
 from app.services.db_services.user_service import UserService
@@ -31,7 +30,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register")
-@limiter.limit("5/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def register_user(
     request: Request, user_data: UserCreate, session: SessionDependency
 ) -> dict[str, str]:
@@ -50,14 +49,14 @@ async def register_user(
     return {"user_id": user.id}
 
 
-@router.post("/login", response_model=UserTokenOutRefresh)
-@limiter.limit("5/minute")
+@router.post("/login", response_model=UserTokenOut)
+@limiter.limit(core_settings.strong_limit_request)
 async def login_user(
     request: Request,
     response: Response,
     user_data: UserTokenIn,
     session: SessionDependency,
-) -> UserTokenOutRefresh:
+) -> UserTokenOut:
 
     service = UserService(session)
     try:
@@ -93,18 +92,18 @@ async def login_user(
     )
 
     logger.info(f"User logged in: user_id={user.id} | email={user.email}")
-    return UserTokenOutRefresh(
+    return UserTokenOut(
         access_token=access_token,
         refresh_token=None,
         token_type="bearer",
     )
 
 
-@router.post("/refresh", response_model=UserTokenOutRefresh)
-@limiter.limit("10/minute")
+@router.post("/refresh", response_model=UserTokenOut)
+@limiter.limit(core_settings.average_limit_request)
 async def refresh_token_endpoint(
     request: Request, response: Response, session: SessionDependency
-) -> UserTokenOutRefresh:
+) -> UserTokenOut:
 
     refresh_token = request.cookies.get(core_settings.refresh_token_cookie_name)
 
@@ -149,7 +148,7 @@ async def refresh_token_endpoint(
     )
 
     logger.debug(f"Token refreshed: user_id={user.id}")
-    return UserTokenOutRefresh(
+    return UserTokenOut(
         access_token=new_access_token,
         refresh_token=None,
         token_type="bearer",
@@ -157,20 +156,20 @@ async def refresh_token_endpoint(
 
 
 @router.get("/oauth/github/login")
-@limiter.limit("5/minute")
+@limiter.limit(core_settings.strong_limit_request)
 async def oauth_github_login(request: Request):
     redirect_uri = get_redirect_uri(Provider.GITHUB, request)
     logger.debug(f"OAuth GitHub login initiated: redirect_uri={redirect_uri}")
     return await oauth.github.authorize_redirect(request, redirect_uri)
 
 
-@router.get("/oauth/github/callback", response_model=UserTokenOutRefresh)
-@limiter.limit("5/minute")
+@router.get("/oauth/github/callback", response_model=UserTokenOut)
+@limiter.limit(core_settings.strong_limit_request)
 async def oauth_github_callback(
     request: Request,
     response: Response,
     session: SessionDependency,
-) -> UserTokenOutRefresh:
+) -> RedirectResponse:
     code = request.query_params.get("code")
 
     if not code:
@@ -178,10 +177,10 @@ async def oauth_github_callback(
         logger.warning(
             f"OAuth GitHub callback failed: no code received | error={error}"
         )
-        raise HTTPException(
-            status_code=400,
-            detail=f"OAuth error: {error or 'No authorization code received'}",
+        redirect_url = (
+            f"{core_settings.frontend_oauth_callback_url}?error={error or 'no_code'}"
         )
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
     try:
         auth_info = await get_oauth_user_info(Provider.GITHUB, request)
@@ -189,17 +188,15 @@ async def oauth_github_callback(
         logger.error(
             f"OAuth GitHub callback failed: could not fetch user info | error={type(e).__name__}: {e}"
         )
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to fetch user information from GitHub",
-        )
+        redirect_url = f"{core_settings.frontend_oauth_callback_url}?error=fetch_failed"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
     if not auth_info.email:
         logger.warning("OAuth GitHub callback failed: email not available from GitHub")
-        raise HTTPException(
-            status_code=400,
-            detail="Email not available from GitHub. Please make your email public.",
+        redirect_url = (
+            f"{core_settings.frontend_oauth_callback_url}?error=email_not_available"
         )
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
     service = UserService(session)
 
@@ -210,7 +207,8 @@ async def oauth_github_callback(
         logger.warning(
             f"OAuth GitHub callback failed: email already exists with different provider | email={auth_info.email}"
         )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        redirect_url = f"{core_settings.frontend_oauth_callback_url}?error=email_exists"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
     access_token = create_access_token(data={"sub": str(user.id)})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
@@ -231,15 +229,14 @@ async def oauth_github_callback(
     logger.info(
         f"OAuth login successful: user_id={user.id} | provider=github | new_user={is_new}"
     )
-    return UserTokenOutRefresh(
-        access_token=access_token,
-        refresh_token=None,
-        token_type="bearer",
+    redirect_url = (
+        f"{core_settings.frontend_oauth_callback_url}?access_token={access_token}"
     )
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/me", response_model=UserProfile)
-@limiter.limit("10/minute")
+@limiter.limit(core_settings.average_limit_request)
 async def get_profile(
     request: Request, current_user: User = Depends(get_current_user)
 ) -> UserProfile:
@@ -260,7 +257,7 @@ async def get_profile(
 
 
 @router.post("/logout", response_model=LogoutResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
+@limiter.limit(core_settings.average_limit_request)
 async def logout_user(
     request: Request,
     response: Response,
