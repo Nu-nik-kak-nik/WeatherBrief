@@ -11,7 +11,7 @@ class CoreSettings(BaseSettings):
     app_version: str = "1.0"
     debug: bool = False
 
-    app_host: str = "0.0.0.0"
+    app_host: str = "localhost"
     app_port: int = 8000
     app_reload: bool = True
     app_module: str = "app.main:app"
@@ -22,6 +22,8 @@ class CoreSettings(BaseSettings):
             "http://127.0.0.1:8000",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
         ]
     )
     allow_credentials: bool = True
@@ -52,9 +54,10 @@ class CoreSettings(BaseSettings):
     github_client_secret: str = Field(..., validation_alias="GITHUB_CLIENT_SECRET")
 
     frontend_oauth_callback_url: str = Field(
-        default="http://localhost:3000/auth/oauth/callback",
+        default="http://localhost:5173/auth/oauth/callback",
         validation_alias="FRONTEND_OAUTH_CALLBACK_URL",
     )
+    github_oauth_callback_url: str = "http://localhost:5173/api/auth/oauth/github/callback"
 
     token_minutes_length: int = 30
     token_days_length: int = 30
@@ -77,7 +80,7 @@ class CoreSettings(BaseSettings):
     short_token_hex: int = 3
     long_token_hex: int = 5
 
-    session_cookie_domain: str | None = None
+    session_cookie_domain: str | None = "localhost"
     session_cookie_secure: bool = False
     session_cookie_httponly: bool = True
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"

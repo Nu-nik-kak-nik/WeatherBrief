@@ -2,7 +2,7 @@ from typing import Callable
 
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request
-
+from app.core.logger import logger
 from app.core.core_settings import Provider, core_settings
 from app.schemas.weather.auth_provider import UserOAuthInfo
 
@@ -105,7 +105,7 @@ REDIRECT_URI_MAP: dict[Provider, str] = {
 }
 
 
-async def get_oauth_user_info(provider: Provider, request: Request) -> UserOAuthInfo:
+async def get_oauth_user_info(provider: Provider, request: Request, redirect_uri: str | None = None) -> UserOAuthInfo:
     handler = FETCH_USER_INFO_MAP.get(provider)
     if not handler:
         raise ValueError(f"Unsupported OAuth provider: {provider.value}")
@@ -113,8 +113,10 @@ async def get_oauth_user_info(provider: Provider, request: Request) -> UserOAuth
     try:
         oauth_client = oauth.__getattr__(provider.value)
         token = await oauth_client.authorize_access_token(request)
+        logger.info(f"Requesting token with redirect_uri: {redirect_uri}")
 
     except Exception as e:
+        logger.info(f"Requesting token with redirect_uri: {redirect_uri}")
         raise RuntimeError(f"Failed to retrieve OAuth token from {provider.value}: {e}")
 
     raw_data = (

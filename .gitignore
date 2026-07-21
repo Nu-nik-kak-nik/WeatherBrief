@@ -37,3 +37,5 @@ logs/
 .DS_Store
 Thumbs.db
 .gitignore
+pyrightconfig.json
+.zed

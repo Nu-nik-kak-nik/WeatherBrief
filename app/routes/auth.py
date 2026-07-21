@@ -10,7 +10,11 @@ from app.core.auth import (
     get_user_by_refresh_token,
 )
 from app.core.core_settings import Provider, core_settings
-from app.core.exceptions import DuplicateEntityError, EntityNotFoundError
+from app.core.exceptions import (
+    DuplicateEntityError,
+    EntityNotFoundError,
+    PasswordValidationError,
+)
 from app.core.logger import logger
 from app.core.oauth import get_oauth_user_info, get_redirect_uri, oauth
 from app.db.session_weather import SessionDependency
@@ -44,6 +48,10 @@ async def register_user(
             f"Registration failed: email already exists | email={user_data.email}"
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    except PasswordValidationError as e:
+        logger.warning(f"Password validation failed: {e.message}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
     logger.info(f"New user registered: user_id={user.id} | email={user.email}")
     return {"user_id": user.id}
@@ -158,8 +166,8 @@ async def refresh_token_endpoint(
 @router.get("/oauth/github/login")
 @limiter.limit(core_settings.strong_limit_request)
 async def oauth_github_login(request: Request):
-    redirect_uri = get_redirect_uri(Provider.GITHUB, request)
-    logger.debug(f"OAuth GitHub login initiated: redirect_uri={redirect_uri}")
+    redirect_uri = core_settings.github_oauth_callback_url
+    logger.info(f"OAuth GitHub login initiated: redirect_uri={redirect_uri}")
     return await oauth.github.authorize_redirect(request, redirect_uri)
 
 
@@ -215,7 +223,11 @@ async def oauth_github_callback(
 
     await service.update_refresh_token(user.id, refresh_token)
 
-    response.set_cookie(
+    redirect_url = (
+        f"{core_settings.frontend_oauth_callback_url}?access_token={access_token}"
+    )
+    redirect_response = RedirectResponse(url=redirect_url, status_code=302)
+    redirect_response.set_cookie(
         key=core_settings.refresh_token_cookie_name,
         value=refresh_token,
         path=core_settings.refresh_token_cookie_path,
@@ -229,10 +241,8 @@ async def oauth_github_callback(
     logger.info(
         f"OAuth login successful: user_id={user.id} | provider=github | new_user={is_new}"
     )
-    redirect_url = (
-        f"{core_settings.frontend_oauth_callback_url}?access_token={access_token}"
-    )
-    return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
+
+    return redirect_response
 
 
 @router.get("/me", response_model=UserProfile)
@@ -253,6 +263,7 @@ async def get_profile(
         created_at=current_user.created_at,
         last_login_at=current_user.last_login_at,
         updated_at=current_user.updated_at,
+        has_password=current_user.hashed_password is not None,
     )
 
 

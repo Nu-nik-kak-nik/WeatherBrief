@@ -30,56 +30,38 @@ class OpenWeatherClient:
         return f"weather:{hashlib.sha256(key_str.encode()).hexdigest()}"
 
     async def _request_with_cache(
-        self, endpoint: str, params: dict, cache_ttl: int
+        self, endpoint: str, params: dict, cache_ttl: int, use_cache: bool = True
     ) -> dict:
-        cache_key = await self._generate_cache_key(endpoint, params)
+        cache_key = None
 
-        cached_data = await cache.get(cache_key)
-        if cached_data:
-            return cached_data
+        if use_cache:
+            cache_key = await self._generate_cache_key(endpoint, params)
+
+            cached_data = await cache.get(cache_key)
+            if cached_data:
+                return cached_data
 
         url = self.base_url + endpoint
         try:
             response = await self.client.get(url, params=params)
             if response.status_code == 401:
-                logger.error(
-                    f"OpenWeather API authentication failed: 401 | "
-                    f"endpoint={endpoint} | params={ {k: v for k, v in params.items() if k != 'appid'} }"
-                )
                 raise HTTPException(401, "Invalid or missing OpenWeather API key")
 
             if response.status_code != 200:
                 msg = response.json().get("message", "Unknown error")
-                logger.error(
-                    f"OpenWeather API error: {response.status_code} | "
-                    f"endpoint={endpoint} | message={msg}"
-                )
                 raise HTTPException(response.status_code, f"OpenWeather: {msg}")
 
             result = response.json()
-
-            await cache.set(cache_key, result, cache_ttl)
-
+            if use_cache and cache_key:
+                await cache.set(cache_key, result, cache_ttl)
             return result
 
         except httpx.TimeoutException:
-            logger.warning(
-                f"OpenWeather API timeout: endpoint={endpoint} | "
-                f"city={params.get('q', 'N/A')}"
-            )
             raise HTTPException(504, "OpenWeather API timeout")
-
         except httpx.NetworkError as e:
-            logger.error(
-                f"OpenWeather network error: endpoint={endpoint} | error={str(e)}"
-            )
             raise HTTPException(502, "OpenWeather network error")
-
         except Exception as e:
-            logger.exception(
-                f"Unexpected error in OpenWeather request: endpoint={endpoint} | error={type(e).__name__}: {e}"
-            )
-            raise
+            raise HTTPException(500, f"Unexpected error: {str(e)}")
 
     async def get_weather(
         self,
@@ -155,6 +137,7 @@ class OpenWeatherClient:
         query: str,
         limit: int = weather_settings.search_location_by_name_limit,
         api_key: str | None = None,
+        use_cache: bool = True,
     ) -> list[dict]:
         key = api_key or weather_settings.openweather_api_key
         if not key:
@@ -173,6 +156,7 @@ class OpenWeatherClient:
             weather_settings.geocoding_endpoint,
             params,
             weather_settings.location_cache_ttl,
+            use_cache=use_cache,
         )
 
         if isinstance(result, list):

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.core_settings import Provider, core_settings
-from app.core.exceptions import EntityNotFoundError
+from app.core.exceptions import EntityNotFoundError, PasswordValidationError
 from app.db.repositories.auth_provider import AuthProviderRepository
 from app.db.repositories.user import UserRepository
 from app.models.weather import AuthProvider, User
@@ -16,6 +16,7 @@ from app.schemas.weather.auth_provider import (
 )
 from app.schemas.weather.user import UserCreate, UserUpdate
 from app.services.utils.crypto import crypto_manager
+from app.services.utils.password_validator import validate_password_strength
 from app.services.utils.security import hasher
 
 
@@ -26,6 +27,12 @@ class UserService:
         self.auth_provider_repo = AuthProviderRepository(session)
 
     async def register_user(self, user_data: UserCreate) -> User:
+        if user_data.hashed_password:
+            password_validator, msg = validate_password_strength(
+                user_data.hashed_password
+            )
+            if not password_validator:
+                raise PasswordValidationError(msg)
         return await self.user_repo.create(user_data)
 
     async def get_user_by_email(self, email: str) -> User | None:
@@ -56,6 +63,24 @@ class UserService:
         is_valid = await self.user_repo.verify_password(user_id, old_password)
         if not is_valid:
             raise EntityNotFoundError("Current password is incorrect")
+
+        password_validator, msg = validate_password_strength(new_password)
+        if not password_validator:
+            raise PasswordValidationError(msg)
+
+        hashed_new = hasher.hash_value(new_password)
+        return await self.user_repo.update_password(user_id, hashed_new)
+
+    async def change_empty_password(
+        self, user_id: str, new_password: str
+    ) -> User | None:
+        is_empty = await self.user_repo.verify_empty_password(user_id)
+        if not is_empty:
+            raise EntityNotFoundError("Current password is not empty")
+
+        password_validator, msg = validate_password_strength(new_password)
+        if not password_validator:
+            raise PasswordValidationError(msg)
 
         hashed_new = hasher.hash_value(new_password)
         return await self.user_repo.update_password(user_id, hashed_new)
@@ -151,7 +176,7 @@ class UserService:
             )
 
         user_create = UserCreate(
-            email=auth_info.email,
+            email=str(auth_info.email),
             username=sanitized_username,
             hashed_password=None,
             is_verified=True,

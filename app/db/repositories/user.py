@@ -146,6 +146,12 @@ class UserRepository:
             return False
         return hasher.verify_value(plain_password, user.hashed_password)
 
+    async def verify_empty_password(self, user_id: str) -> bool:
+        user = await self.get_by_id(user_id)
+        if user and not user.hashed_password:
+            return True
+        return False
+
     async def update_refresh_token(
         self, user_id: str, refresh_token: str
     ) -> User | None:

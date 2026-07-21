@@ -144,6 +144,7 @@ class UserProfile(BaseModel):
     created_at: datetime
     last_login_at: datetime | None
     updated_at: datetime
+    has_password: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

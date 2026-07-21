@@ -140,3 +140,46 @@ async def search_locations_by_coordinates(
     return LocationSearchResponse(
         results=[LocationSearchResult(**item) for item in results]
     )
+
+
+@router.get("/validate-key", response_model=LocationSearchResponse)
+@limiter.limit(core_settings.light_limit_request)
+async def validate_api_key(
+    request: Request,
+    api_key: str,
+    params: dict[str, Any] = Depends(get_validated_location_search_params),
+) -> LocationSearchResponse:
+    try:
+        results = await openweather_client.search_location_by_name(
+            query=params["query"],
+            limit=params["limit"],
+            api_key=api_key,
+            use_cache=False,
+        )
+
+        if not results:
+            logger.warning(
+                f"Location search returned 0 results: query='{params['query']}'"
+            )
+
+        return LocationSearchResponse(
+            results=[LocationSearchResult(**item) for item in results]
+        )
+
+    except HTTPException as e:
+        if e.status_code == 401:
+            logger.info("API key validation failed: invalid key provided")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid API key"
+            )
+        elif e.status_code >= 500:
+            logger.error(f"API key validation internal error: {e.detail}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error",
+            )
+        else:
+            logger.warning(f"API key validation error: {e.detail}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=e.detail
+            )

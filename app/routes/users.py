@@ -4,7 +4,7 @@ from slowapi.util import get_remote_address
 
 from app.core.auth import CurrentUser
 from app.core.core_settings import core_settings
-from app.core.exceptions import EntityNotFoundError
+from app.core.exceptions import EntityNotFoundError, PasswordValidationError
 from app.core.logger import logger
 from app.db.session_weather import SessionDependency
 from app.models.weather import User
@@ -64,15 +64,26 @@ async def change_password(
     service = UserService(session)
 
     try:
-        await service.change_password(current_user.id, old_password, new_password)
-        logger.info(f"Password changed: user_id={current_user.id}")
-        return {"detail": "Password changed successfully"}
+        if current_user.hashed_password is not None:
+            await service.change_password(current_user.id, old_password, new_password)
+            logger.info(f"Password changed: user_id={current_user.id}")
+            return {"detail": "Password changed successfully"}
+        else:
+            await service.change_empty_password(current_user.id, new_password)
+            logger.info(f"Empty password changed: user_id={current_user.id}")
+            return {"detail": "Empty password changed successfully"}
 
     except EntityNotFoundError as e:
         logger.warning(
             f"Password change failed: invalid old password | user_id={current_user.id}"
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except PasswordValidationError as e:
+        logger.warning(
+            f"Password validation failed: {e.message} | user_id={current_user.id}"
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
     except Exception as e:
         logger.error(
