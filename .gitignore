@@ -39,3 +39,7 @@ Thumbs.db
 .gitignore
 pyrightconfig.json
 .zed
+node_modules/
+dist/
+build/
+.vite/

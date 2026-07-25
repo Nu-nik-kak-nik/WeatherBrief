@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <rect x="5" y="5" width="90" height="90" rx="22" fill="#282828" stroke="#ebdbb2" stroke-width="2" opacity="0.9"/>
+  <circle cx="38" cy="32" r="14" fill="#fabd2f"/>
+  <g stroke="#fabd2f" stroke-width="2.5" stroke-linecap="round">
+    <line x1="38" y1="12" x2="38" y2="16"/>
+    <line x1="38" y1="48" x2="38" y2="52"/>
+    <line x1="18" y1="32" x2="22" y2="32"/>
+    <line x1="54" y1="32" x2="58" y2="32"/>
+    <line x1="23" y1="17" x2="26" y2="20"/>
+    <line x1="50" y1="44" x2="53" y2="47"/>
+    <line x1="23" y1="47" x2="26" y2="44"/>
+    <line x1="50" y1="20" x2="53" y2="17"/>
+  </g>
+  <path d="M 42.544 70.96 C 40.266 69.605 35 64.4 35 55 C 35 45.6 42.6 38 52 38 C 54.8 38 57.4 38.7 59.7 40 C 62.3 35.8 67 33 72.4 33 C 80.7 33 87.4 39.7 87.4 48 C 87.4 50.2 86.9 52.3 86 54.2 C 88.6 55.8 90.4 58.6 90.4 61.8 C 90.4 66.8 86.4 70.8 81.4 70.8 L 55 70.8 L 42.544 70.96 Z" fill="#83a598"/>
+  <ellipse cx="63.566" cy="76.401" rx="23.862" ry="3.753" fill="#1d2021" opacity="0.25" style=""/>
+</svg>
