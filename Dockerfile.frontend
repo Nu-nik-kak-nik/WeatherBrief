@@ -1,5 +1,4 @@
-# Сборка React-приложения
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -8,24 +7,17 @@ RUN npm ci
 
 COPY frontend/ .
 
-# Передаём переменные окружения для Vite
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-
 ARG VITE_FRONTEND_OAUTH_CALLBACK_URL
 ENV VITE_FRONTEND_OAUTH_CALLBACK_URL=$VITE_FRONTEND_OAUTH_CALLBACK_URL
 
 RUN npm run build
 
-# Раздача статики через serve
-FROM node:18-alpine AS runner
-
+FROM node:20-alpine AS runner
 RUN npm install -g serve
-
 WORKDIR /app
-
 COPY --from=builder /app/dist /app/dist
 
 EXPOSE 80
-
 CMD ["serve", "-s", "dist", "-l", "80"]

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -10,7 +8,6 @@ services:
     volumes:
       - ./weather.db:/app/weather.db
       - ./logs:/app/logs
-      - ./.env:/app/.env
     environment:
       - ENV_FILE=/app/.env
     depends_on:
@@ -19,8 +16,6 @@ services:
 
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -33,7 +28,7 @@ services:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
         - VITE_FRONTEND_OAUTH_CALLBACK_URL=${VITE_FRONTEND_OAUTH_CALLBACK_URL:-http://localhost:5173/oauth/callback}
     ports:
-      - "5173:80"   # порт фронтенда на хосте, можно изменить
+      - "5173:80"
     restart: unless-stopped
 
 volumes:
