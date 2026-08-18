@@ -194,6 +194,152 @@
 
 ---
 
+## Быстрый старт с docker
+
+### Требования
+
+- Docker Engine
+- Docker Compose
+- `openssl` для генерации секретного ключа
+- Python 3 с установленной библиотекой `cryptography` для генерации Fernet-ключа
+
+### 1. Подготовить конфигурацию
+
+Скопируйте пример конфигурации:
+
+```bash
+cp .env.example .env
+```
+
+Откройте файл:
+
+```bash
+nano .env
+```
+
+В `.env` должны быть указаны следующие значения:
+
+```dotenv
+# Обязательные секреты
+SECRET_KEY=your-secret-key-min-32-characters
+SESSION_SECRET_KEY=your-session-secret-min-32-characters
+FERNET_ENCRYPTION_KEY=your-fernet-key-base64-urlsafe
+
+# OpenWeather API
+OPENWEATHER_API_KEY=your-openweather-api-key
+
+# OAuth-провайдеры, опционально
+GITHUB_CLIENT_ID=client-id
+GITHUB_CLIENT_SECRET=need-client-secret
+GOOGLE_CLIENT_ID=client-id
+GOOGLE_CLIENT_SECRET=need-client-secret
+
+# Адрес frontend для Docker-сборки
+VITE_API_BASE_URL=http://localhost:8000
+# Адрес frontend для локальной разработки
+# VITE_API_BASE_URL=/api
+VITE_FRONTEND_OAUTH_CALLBACK_URL=http://localhost:5173/oauth/callback
+
+# Прочие настройки
+LOG_LEVEL=INFO
+FRONTEND_OAUTH_CALLBACK_URL=http://localhost:5173/auth/oauth/callback
+```
+
+#### Обязательные переменные
+
+`OPENWEATHER_API_KEY` — ключ OpenWeather. Его можно получить на сайте [OpenWeather](https://openweathermap.org/).
+
+`SECRET_KEY` и `SESSION_SECRET_KEY` можно сгенерировать командой:
+
+```bash
+openssl rand -hex 32
+```
+
+Для `FERNET_ENCRYPTION_KEY` используйте:
+
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+#### OAuth-переменные
+
+GitHub OAuth и Google OAuth являются необязательными.
+
+Если OAuth не используется, оставьте значения-заглушки:
+
+```dotenv
+GITHUB_CLIENT_ID=client-id
+GITHUB_CLIENT_SECRET=need-client-secret
+GOOGLE_CLIENT_ID=client-id
+GOOGLE_CLIENT_SECRET=need-client-secret
+```
+
+#### Frontend-переменные
+
+Для текущей Docker-конфигурации используется прямое подключение frontend к backend:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+Не заменяйте это значение на `/api`, если в проект не добавлен reverse proxy.
+
+Переменная `VITE_API_BASE_URL` встраивается в frontend во время сборки. Поэтому после её изменения frontend необходимо пересобрать.
+
+### 2. Собрать и запустить проект
+
+Для первой сборки и запуска выполните: ```bash sudo docker compose up -d --build ``` 
+
+Docker Compose запустит следующие сервисы: 
+
+- backend; 
+
+- Redis; 
+
+- frontend.
+
+### 3. Команды для работы с образами
+
+Если образы уже собраны, чтобы собрать введите:
+
+```bash
+sudo docker compose up -d
+```
+
+Временно остановить контейнеры:
+
+```bash
+sudo docker compose stop
+```
+
+Повторно запустить остановленные контейнеры:
+
+```bash
+sudo docker compose start
+```
+
+Остановить и удалить контейнеры:
+
+```bash
+sudo docker compose down
+```
+
+Команда `down` удаляет контейнеры и Docker-сеть проекта, но сохраняет:
+
+- образы;
+- файл `.env`;
+- `weather.db`;
+- каталог `logs`;
+- именованный volume Redis.
+
+Полностью удалить проект вместе с данными Redis:
+
+```bash
+sudo docker compose down -v
+```
+
+---
+
 ## 💻 Локальный запуск
 
 В этом разделе описаны шаги для запуска проекта в режиме разработки на локальной машине. Предполагается, что у вас установлены **Python 3.11+**, **Node.js 18+** и **npm**.
@@ -223,7 +369,7 @@ pip install -r requirements.txt
 
 3. **Настройте переменные окружения**
 
-Создайте в корне проекта файл `.env` (рядом с `README.md`) и заполните его:
+Создайте в корне проекта файл `.env` (рядом с `README.md`) и заполните его по примеру файла `.env.example`:
 
 ```env
 # === Обязательные переменные ===

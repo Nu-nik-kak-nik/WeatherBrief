@@ -1,4 +1,4 @@
-aioredis==2.0.1
+# aioredis==2.0.1
 aiosqlite==0.22.1
 alembic==1.17.2
 annotated-doc==0.0.4

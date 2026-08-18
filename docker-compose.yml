@@ -6,10 +6,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./weather.db:/app/weather.db
-      - ./logs:/app/logs
+      - ./weather.db:/app/weather.db:Z
+      - ./logs:/app/logs:Z
+      - ./.env:/app/.env:ro,Z
     environment:
-      - ENV_FILE=/app/.env
+      ENV_FILE: /app/.env
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - redis
     restart: unless-stopped
@@ -25,8 +27,8 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
-        - VITE_FRONTEND_OAUTH_CALLBACK_URL=${VITE_FRONTEND_OAUTH_CALLBACK_URL:-http://localhost:5173/oauth/callback}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_FRONTEND_OAUTH_CALLBACK_URL: ${VITE_FRONTEND_OAUTH_CALLBACK_URL:-http://localhost:5173/oauth/callback}
     ports:
       - "5173:80"
     restart: unless-stopped
